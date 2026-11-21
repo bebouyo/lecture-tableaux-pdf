@@ -11,6 +11,10 @@ on:
         description: "Nombre max de quotidiens par part (0 = tous)"
         required: false
         default: "0"
+      script:
+        description: "lire.py (pages choisies) ou lire_complet.py (PDF entiers)"
+        required: false
+        default: "lire.py"
 
 permissions:
   contents: read
@@ -29,9 +33,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pdfplumber==0.11.10
+      - run: pip install pdfplumber==0.11.10 pymupdf==1.26.4
       - name: Lecture
-        run: python lire.py "plan_${{ inputs.annee }}.json" ${{ matrix.part }} 20 "${{ inputs.limite }}"
+        run: python ${{ inputs.script }} "plan_${{ inputs.annee }}.json" ${{ matrix.part }} 20 "${{ inputs.limite }}"
       - name: Chiffrement du résultat
         if: always()
         run: |
