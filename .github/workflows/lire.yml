@@ -1,0 +1,51 @@
+name: Lecture des tableaux
+
+on:
+  workflow_dispatch:
+    inputs:
+      annee:
+        description: "Année (plan_<annee>.json)"
+        required: true
+        default: "2025"
+      limite:
+        description: "Nombre max de quotidiens par part (0 = tous)"
+        required: false
+        default: "0"
+
+permissions:
+  contents: read
+
+jobs:
+  lire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        part: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pdfplumber==0.11.10
+      - name: Lecture
+        run: python lire.py "plan_${{ inputs.annee }}.json" ${{ matrix.part }} 20 "${{ inputs.limite }}"
+      - name: Chiffrement du résultat
+        if: always()
+        run: |
+          touch sortie_${{ matrix.part }}.jsonl
+          gzip -9 sortie_${{ matrix.part }}.jsonl
+          openssl rand -out cle.bin 32
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in sortie_${{ matrix.part }}.jsonl.gz -out sortie_${{ matrix.part }}.enc -pass file:cle.bin
+          openssl pkeyutl -encrypt -pubin -inkey cle_publique.pem -pkeyopt rsa_padding_mode:oaep -in cle.bin -out cle_${{ matrix.part }}.enc
+          rm -f cle.bin sortie_${{ matrix.part }}.jsonl.gz
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: part-${{ inputs.annee }}-${{ matrix.part }}
+          path: |
+            sortie_${{ matrix.part }}.enc
+            cle_${{ matrix.part }}.enc
+          retention-days: 3
