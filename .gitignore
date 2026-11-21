@@ -1,0 +1,6 @@
+sortie_*
+q.pdf
+*.enc
+*.pem.priv
+prive.pem
+__pycache__/
