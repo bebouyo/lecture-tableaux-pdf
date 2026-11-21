@@ -37,7 +37,7 @@ jobs:
         run: |
           touch sortie_${{ matrix.part }}.jsonl
           gzip -9 sortie_${{ matrix.part }}.jsonl
-          openssl rand -out cle.bin 32
+          openssl rand -hex 32 > cle.bin
           openssl enc -aes-256-cbc -pbkdf2 -salt -in sortie_${{ matrix.part }}.jsonl.gz -out sortie_${{ matrix.part }}.enc -pass file:cle.bin
           openssl pkeyutl -encrypt -pubin -inkey cle_publique.pem -pkeyopt rsa_padding_mode:oaep -in cle.bin -out cle_${{ matrix.part }}.enc
           rm -f cle.bin sortie_${{ matrix.part }}.jsonl.gz
