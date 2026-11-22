@@ -17,7 +17,19 @@ BASE = re.compile(
     r"|\b(?:fournisseurs?|prestataires?)\b.{0,80}?\bbases?\s+de\s+donn[ée]es\b"
     r"|\b(?:compl[ée]ment|constitution|r[ée]vision|actualisation|mise\s+[àa]\s+jour)\b.{0,25}?\bbases?\s+de\s+donn[ée]es\b",
     re.S)
-TETE = re.compile(r'(?m)^[ \t]*(?:REGION|MINISTERE|COMMUNE|DIRECTION|AGENCE|CENTRE|SOCIETE|UNIVERSITE|OFFICE|CAISSE|FONDS|INSTITUT|ECOLE|LYCEE|HOPITAL|PRESIDENCE|PREMIER MINISTERE|ASSEMBLEE|CONSEIL|AUTORITE|LABORATOIRE|PROJET|PROGRAMME|LOTERIE|CHAMBRE|MAISON|BUREAU|RADIODIFFUSION|COUR|HAUTE)\b[^\n]{8,}$')
+TETE = re.compile(r'(?m)^[ \t]*(?:REGION|MINISTERE|COMMUNE|DIRECTION|AGENCE|CENTRE|SOCIETE|UNIVERSITE|OFFICE|CAISSE|FONDS|INSTITUT|ECOLE|LYCEE|HOPITAL|PRESIDENCE|PREMIER MINISTERE|ASSEMBLEE|CONSEIL|AUTORITE|LABORATOIRE|PROJET|PROGRAMME|LOTERIE|CHAMBRE|MAISON|BUREAU|RADIODIFFUSION|COUR|HAUTE)\b(?![^\n]*\d{5})[^\n]{8,}$')
+
+
+MOTS_TETE = re.compile(r'(?i)r[ée]sultat|manifestation|\bavis\b|synth[èe]se|fiche|liste|d[ée]pouillement|demande\s+de|appel|base\s+de\s+donn|r[ée]pertoire|d[ée]lib[ée]ration')
+
+
+MONTANT = re.compile(r'(?<!\d)\d{1,3}(?:[ .]\d{3}){2,}(?!\d)')
+
+
+def tete_autorite(c):
+    """Vrai si un en-tête d'autorité ouvre la page : ligne « REGION… / COMMUNE… » suivie de près par
+    « Résultat / Manifestation / Avis / Synthèse… » (un simple nom d'entreprise « SOCIETE … » ne compte pas)."""
+    return any(MOTS_TETE.search(c[m.end():m.end() + 400]) for m in TETE.finditer(c[:700]))
 LIGNE = re.compile(r'(?m)^[ \t]*\d{1,4}[ \t]+[A-Z][A-Z]')
 
 
@@ -28,11 +40,13 @@ def corps(t):
 
 def est_liste(t):
     c = corps(t)
-    return len(re.findall(r'RCCM|IFU', c)) >= 3 or len(LIGNE.findall(c)) >= 8
+    return (len(re.findall(r'RCCM|IFU', c)) >= 3 or len(LIGNE.findall(c)) >= 8
+            or len(re.findall(r'(?<![\dA-Z])\d{7,8}\s?[A-Z](?![A-Za-z])', c)) >= 5)   # listes sans numéros : IFU
 
 
 def suite_de_liste(t):
-    return not TETE.search(corps(t)[:700]) and est_liste(t)
+    c = corps(t)   # une page pleine de montants (résultat d'un marché ordinaire) n'est pas une suite de liste
+    return not tete_autorite(c) and est_liste(t) and len(MONTANT.findall(c)) < 3
 
 
 plan = json.load(open(sys.argv[1], encoding='utf-8'))
